@@ -25,7 +25,7 @@ Add-Type -AssemblyName WindowsBase
 Add-Type -AssemblyName System.Windows.Forms
 
 $script:ToolName = 'PSADT SFX Builder'
-$script:ToolVersion = '1.0.2'
+$script:ToolVersion = '1.0.3'
 $script:SelectedCertificate = $null
 $script:DetectedEntryScript = $null
 
@@ -457,7 +457,8 @@ function New-PsadtSfx {
 ;!@Install@!UTF-8!
 Title="$safeTitle"
 Progress="no"
-RunProgram="powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File SfxLauncher.ps1"
+Directory=""
+RunProgram="powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"%%T\\SfxLauncher.ps1\""
 ;!@InstallEnd@!
 "@
         Write-Utf8WithoutBom -Path $configPath -Content $config

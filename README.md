@@ -21,6 +21,8 @@ FTP-VendorAppName-Version.exe
    - waits for PSADT to finish.
 
 No custom `SfxLauncher.exe` is generated or embedded. This avoids introducing an unsigned, dynamically compiled executable that endpoint security products reasonably treat as suspicious.
+
+The generated installer config uses `Directory=""`, as required by the stock 7-Zip installer modules when `RunProgram` must resolve a Windows executable instead of an extracted payload executable. The launcher script is addressed through 7-Zip's `%%T` extraction-directory token.
 5. Compresses the staged package with 7-Zip.
 6. Combines an installer SFX module, its configuration, and the archive.
 7. Tests the unsigned SFX payload.
