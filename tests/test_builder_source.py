@@ -17,6 +17,12 @@ def function_body(name: str) -> str:
 
 
 class BuilderSourceTests(unittest.TestCase):
+    def test_gui_scope_disables_strict_mode_for_windows_powershell_wpf(self):
+        launcher_start = SOURCE.index("function New-SfxLauncherContent")
+        self.assertIn("Set-StrictMode -Off", SOURCE[:launcher_start])
+        launcher_body = function_body("New-SfxLauncherContent")
+        self.assertIn("Set-StrictMode -Version 2.0", launcher_body)
+
     def test_builder_cmd_prefers_native_powershell(self):
         self.assertIn("%SystemRoot%\\System32\\WindowsPowerShell", LAUNCHER)
         self.assertIn("%SystemRoot%\\Sysnative\\WindowsPowerShell", LAUNCHER)

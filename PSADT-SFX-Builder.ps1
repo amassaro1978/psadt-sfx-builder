@@ -12,7 +12,11 @@
 [CmdletBinding()]
 param()
 
-Set-StrictMode -Version 2.0
+# Windows PowerShell 5.1's WPF host and event pipeline use lazily initialized
+# internal script variables (for example, PipelineComplete). StrictMode at the
+# GUI scope can turn those framework details into startup exceptions. The
+# generated elevated launcher enables StrictMode in its own isolated scope.
+Set-StrictMode -Off
 $ErrorActionPreference = 'Stop'
 
 Add-Type -AssemblyName PresentationFramework
