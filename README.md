@@ -13,11 +13,14 @@ FTP-VendorAppName-Version.exe
 1. Selects a trusted PSADT package folder.
 2. Detects the root PSADT entry script and reads `AppVendor`, `AppName`, and `AppVersion` where available.
 3. Copies the package to an isolated temporary staging folder.
-4. Compiles a package-local, windowless launcher and adds a small PowerShell launcher that:
+4. Adds and Authenticode-signs a small PowerShell launcher that:
+   - is started through the explicit Windows PowerShell system path rather than a package-local executable;
    - relaunches through `%WINDIR%\Sysnative\WindowsPowerShell\v1.0\powershell.exe` when a 32-bit SFX starts on 64-bit Windows;
    - requests elevation;
    - runs the PSADT entry script with `-DeploymentType Install -DeployMode Interactive`;
    - waits for PSADT to finish.
+
+No custom `SfxLauncher.exe` is generated or embedded. This avoids introducing an unsigned, dynamically compiled executable that endpoint security products reasonably treat as suspicious.
 5. Compresses the staged package with 7-Zip.
 6. Combines an installer SFX module, its configuration, and the archive.
 7. Tests the unsigned SFX payload.

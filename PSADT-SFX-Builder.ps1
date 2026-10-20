@@ -25,7 +25,7 @@ Add-Type -AssemblyName WindowsBase
 Add-Type -AssemblyName System.Windows.Forms
 
 $script:ToolName = 'PSADT SFX Builder'
-$script:ToolVersion = '1.0.0'
+$script:ToolVersion = '1.0.1'
 $script:SelectedCertificate = $null
 $script:DetectedEntryScript = $null
 
@@ -255,81 +255,6 @@ exit 0
 "@
 }
 
-function New-NativeSfxLauncher {
-    param([Parameter(Mandatory = $true)][string]$OutputPath)
-
-    $className = 'SfxLauncher_' + [guid]::NewGuid().ToString('N')
-    $source = @"
-using System;
-using System.ComponentModel;
-using System.Diagnostics;
-using System.IO;
-using System.Security.Principal;
-
-internal static class $className
-{
-    private static bool IsAdministrator()
-    {
-        using (WindowsIdentity identity = WindowsIdentity.GetCurrent())
-        {
-            WindowsPrincipal principal = new WindowsPrincipal(identity);
-            return principal.IsInRole(WindowsBuiltInRole.Administrator);
-        }
-    }
-
-    private static string Quote(string value)
-    {
-        return "\"" + value.Replace("\"", "\\\"") + "\"";
-    }
-
-    [STAThread]
-    private static int Main()
-    {
-        try
-        {
-            string baseDirectory = AppDomain.CurrentDomain.BaseDirectory;
-            string scriptPath = Path.Combine(baseDirectory, "SfxLauncher.ps1");
-            string windowsDirectory = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
-            string systemDirectory = Environment.Is64BitOperatingSystem && !Environment.Is64BitProcess
-                ? Path.Combine(windowsDirectory, "Sysnative")
-                : Path.Combine(windowsDirectory, "System32");
-            string powerShellPath = Path.Combine(systemDirectory, "WindowsPowerShell", "v1.0", "powershell.exe");
-
-            ProcessStartInfo startInfo = new ProcessStartInfo();
-            startInfo.FileName = powerShellPath;
-            startInfo.Arguments = "-NoProfile -ExecutionPolicy Bypass -File " + Quote(scriptPath);
-            startInfo.WorkingDirectory = baseDirectory;
-            startInfo.UseShellExecute = true;
-            startInfo.WindowStyle = ProcessWindowStyle.Hidden;
-            if (!IsAdministrator())
-            {
-                startInfo.Verb = "runas";
-            }
-
-            using (Process process = Process.Start(startInfo))
-            {
-                process.WaitForExit();
-                return process.ExitCode;
-            }
-        }
-        catch (Win32Exception exception)
-        {
-            return exception.NativeErrorCode == 1223 ? 1223 : 1;
-        }
-        catch
-        {
-            return 1;
-        }
-    }
-}
-"@
-
-    Add-Type -TypeDefinition $source -Language CSharp -OutputAssembly $OutputPath -OutputType WindowsApplication
-    if (-not (Test-Path -LiteralPath $OutputPath -PathType Leaf)) {
-        throw 'The native SFX launcher could not be compiled.'
-    }
-}
-
 function Assert-NoReparsePoints {
     param([Parameter(Mandatory = $true)][string]$RootPath)
 
@@ -508,8 +433,11 @@ function New-PsadtSfx {
 
         $launcherPath = Join-Path $stagingPath 'SfxLauncher.ps1'
         Write-Utf8WithoutBom -Path $launcherPath -Content (New-SfxLauncherContent -EntryScriptName $EntryScriptName)
-        $nativeLauncherPath = Join-Path $stagingPath 'SfxLauncher.exe'
-        New-NativeSfxLauncher -OutputPath $nativeLauncherPath
+        & $Log 'Signing the embedded PowerShell launcher...'
+        $launcherSignature = Set-AuthenticodeSignature -FilePath $launcherPath -Certificate $Certificate -TimestampServer $TimestampServer -HashAlgorithm SHA256
+        if ($launcherSignature.Status -ne [System.Management.Automation.SignatureStatus]::Valid) {
+            throw "Embedded launcher signing did not produce a valid signature: $($launcherSignature.Status) - $($launcherSignature.StatusMessage)"
+        }
 
         & $Log 'Compressing package with 7-Zip...'
         [void](Invoke-SevenZipArchive -SevenZipPath $SevenZipPath -StagingPath $stagingPath -ArchivePath $archivePath)
@@ -520,7 +448,7 @@ function New-PsadtSfx {
 ;!@Install@!UTF-8!
 Title="$safeTitle"
 Progress="no"
-RunProgram="SfxLauncher.exe"
+RunProgram="%SystemRoot%\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File SfxLauncher.ps1"
 ;!@InstallEnd@!
 "@
         Write-Utf8WithoutBom -Path $configPath -Content $config
