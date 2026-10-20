@@ -101,12 +101,19 @@ class BuilderSourceTests(unittest.TestCase):
         body = function_body("New-PsadtSfx")
         self.assertIn(";!@Install@!UTF-8!", body)
         self.assertIn('Progress="no"', body)
-        self.assertIn('%SystemRoot%\\\\System32\\\\WindowsPowerShell', body)
+        self.assertIn('RunProgram="powershell.exe ', body)
         self.assertIn('-WindowStyle Hidden -File SfxLauncher.ps1', body)
         self.assertNotIn('Directory=""', body)
         self.assertNotIn("nowait:", body.lower())
         self.assertNotIn("SfxLauncher.exe", SOURCE)
         self.assertNotIn("Add-Type -TypeDefinition", SOURCE)
+
+    def test_package_cannot_shadow_windows_powershell(self):
+        body = function_body("New-PsadtSfx")
+        rejection = body.index("$shadowPowerShell = Join-Path $stagingPath 'powershell.exe'")
+        config = body.index('RunProgram="powershell.exe ')
+        self.assertLess(rejection, config)
+        self.assertIn("would shadow Windows PowerShell", body)
 
     def test_embedded_launcher_is_signed_before_archiving(self):
         body = function_body("New-PsadtSfx")

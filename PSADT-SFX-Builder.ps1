@@ -25,7 +25,7 @@ Add-Type -AssemblyName WindowsBase
 Add-Type -AssemblyName System.Windows.Forms
 
 $script:ToolName = 'PSADT SFX Builder'
-$script:ToolVersion = '1.0.1'
+$script:ToolVersion = '1.0.2'
 $script:SelectedCertificate = $null
 $script:DetectedEntryScript = $null
 
@@ -431,6 +431,15 @@ function New-PsadtSfx {
         Get-ChildItem -LiteralPath $source -Force -ErrorAction Stop |
             Copy-Item -Destination $stagingPath -Recurse -Force -ErrorAction Stop
 
+        # RunProgram resolves powershell.exe through the Windows executable
+        # search path because stock installer SFX modules do not consistently
+        # expand %SystemRoot%. Prevent a package-local executable from
+        # shadowing the trusted Windows PowerShell binary.
+        $shadowPowerShell = Join-Path $stagingPath 'powershell.exe'
+        if (Test-Path -LiteralPath $shadowPowerShell -PathType Leaf) {
+            throw 'The package root contains powershell.exe, which would shadow Windows PowerShell during SFX launch.'
+        }
+
         $launcherPath = Join-Path $stagingPath 'SfxLauncher.ps1'
         Write-Utf8WithoutBom -Path $launcherPath -Content (New-SfxLauncherContent -EntryScriptName $EntryScriptName)
         & $Log 'Signing the embedded PowerShell launcher...'
@@ -448,7 +457,7 @@ function New-PsadtSfx {
 ;!@Install@!UTF-8!
 Title="$safeTitle"
 Progress="no"
-RunProgram="%SystemRoot%\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File SfxLauncher.ps1"
+RunProgram="powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File SfxLauncher.ps1"
 ;!@InstallEnd@!
 "@
         Write-Utf8WithoutBom -Path $configPath -Content $config

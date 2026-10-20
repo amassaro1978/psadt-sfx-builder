@@ -14,7 +14,7 @@ FTP-VendorAppName-Version.exe
 2. Detects the root PSADT entry script and reads `AppVendor`, `AppName`, and `AppVersion` where available.
 3. Copies the package to an isolated temporary staging folder.
 4. Adds and Authenticode-signs a small PowerShell launcher that:
-   - is started through the explicit Windows PowerShell system path rather than a package-local executable;
+   - is started through Windows' executable search path after the builder rejects any package-local `powershell.exe` that could shadow the system copy;
    - relaunches through `%WINDIR%\Sysnative\WindowsPowerShell\v1.0\powershell.exe` when a 32-bit SFX starts on 64-bit Windows;
    - requests elevation;
    - runs the PSADT entry script with `-DeploymentType Install -DeployMode Interactive`;
